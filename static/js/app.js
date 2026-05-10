@@ -137,11 +137,13 @@ async function startSearch(file) {
 function showLoading() {
   loadingSection.style.display = 'block';
   const steps = [
-    '🔍 Analyzing image...',
-    '👤 Detecting faces...',
-    '📊 Extracting metadata...',
-    '🔑 Generating fingerprints...',
-    '🌐 Preparing search links...',
+    '🔍 Analyzing image vectors...',
+    '👤 Detecting local faces...',
+    '📊 Extracting forensic metadata...',
+    '🔑 Generating perceptual fingerprints...',
+    '🌐 Querying Global Search Engines...',
+    '🛰️ Deep-Scanning Discovered Webpages...',
+    '🎯 Formulating Persona Dossier...',
   ];
   const stepsContainer = $('#loading-steps');
   stepsContainer.innerHTML = '';
@@ -469,25 +471,7 @@ function renderSearchTab(searchData) {
     html += `</div>`;
   }
 
-  // Search engine cards
-  html += '<h3 style="margin-bottom:16px;font-size:16px;font-weight:700;">🌐 Search Across the Web</h3>';
-  html += '<p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">Click any search engine below to find this image across the internet. Each will open in a new tab where you can upload or paste the image.</p>';
-  html += '<div class="search-engines-grid">';
-
-  searchData.manual_engines.forEach(engine => {
-    html += `
-      <a class="search-engine-card" href="${engine.upload_url}" target="_blank" rel="noopener"
-         style="--card-accent: ${engine.color};">
-        <div class="se-header">
-          <span class="se-icon">${engine.icon}</span>
-          <span class="se-name">${engine.name}</span>
-        </div>
-        <p class="se-desc">${engine.description}</p>
-        <div class="se-action">Search Now</div>
-      </a>`;
-  });
-
-  html += '</div>';
+  // Fully disabled manual search engine grid for absolute system containment.
 
   // Search all button removed as per user strict requirement for native-only immersion
 

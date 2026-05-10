@@ -116,55 +116,104 @@ class SearchEngine:
             err_msg = str(google_result) if isinstance(google_result, Exception) else "No results"
             results["search_status"].append({"engine": "Google Lens", "status": "fallback", "count": 0, "message": f"Auto-search unavailable ({err_msg[:60]})."})
 
-        # Process combined results
-        if all_pages:
-            # Deduplicate by URL
-            seen_urls = set()
-            unique_pages = []
-            for p in all_pages:
-                if p["url"] not in seen_urls:
-                    seen_urls.add(p["url"])
-                    unique_pages.append(p)
-                    
-            results["pages_found"] = unique_pages
-            
-            # Build Social Radar with combined data
-            social_radar = {
-                "social_media": [p for p in unique_pages if p.get("category") == "social_media"],
-                "dating_app": [p for p in unique_pages if p.get("category") == "dating_app"],
-                "forum_blog": [p for p in unique_pages if p.get("category") == "forum_blog"],
-                "total_social_hits": len([p for p in unique_pages if p.get("category") in ("social_media", "dating_app", "forum_blog")]),
-                "identity_details": self._extract_identity_details(unique_pages),
-            }
-            results["social_radar"] = social_radar
-        else:
-            err_msg = str(yandex_result) if isinstance(yandex_result, Exception) else "No results"
-            results["search_status"].append({
-                "engine": "Yandex",
-                "status": "fallback",
-                "count": 0,
-                "message": f"Auto-search unavailable ({err_msg[:60]}). Use manual link.",
-            })
+        # Deduplicate all raw results by URL
+        seen_urls = set()
+        unique_pages = []
+        for p in all_pages:
+            if p.get("url") and p["url"] not in seen_urls:
+                seen_urls.add(p["url"])
+                unique_pages.append(p)
 
-        # If we got a public URL, generate direct search URLs
-        if isinstance(public_url, str) and public_url.startswith("http"):
-            results["public_url"] = public_url
-            encoded = urllib.parse.quote_plus(public_url)
-            results["direct_search_urls"] = {
-                "google": f"https://www.google.com/searchbyimage?sbisrc=cr_1_5_2&image_url={encoded}",
-                "yandex": f"https://yandex.com/images/search?rpt=imageview&url={encoded}",
-                "bing": f"https://www.bing.com/images/search?view=detailv2&iss=sbi&q=imgurl:{encoded}",
-                "tineye": f"https://tineye.com/search?url={encoded}",
-            }
-        else:
-            results["search_status"].append({
-                "engine": "Temp Upload",
-                "status": "info",
-                "count": 0,
-                "message": "Could not create public URL. Use manual upload on search engines.",
-            })
+        # --- START DEEP CRAWL INJECTOR ---
+        # Identify Top 10 high-signal URLs that we detected from SERP
+        top_urls = unique_pages[:12]
+        print(f"[*] Found {len(unique_pages)} base pages. Deep-scraping top {len(top_urls)} for full identity extraction...")
+        
+        deep_pages = await self._deep_scrape_pages(top_urls)
+        
+        # Replace with deep-analyzed pages for highest signal data
+        results["pages_found"] = deep_pages
+        # --- END DEEP CRAWL INJECTOR ---
+
+        # Build Social Radar with combined DEEP data
+        social_radar = {
+            "social_media": [p for p in deep_pages if p.get("category") == "social_media"],
+            "dating_app": [p for p in deep_pages if p.get("category") == "dating_app"],
+            "forum_blog": [p for p in deep_pages if p.get("category") == "forum_blog"],
+            "total_social_hits": len([p for p in deep_pages if p.get("category") in ("social_media", "dating_app", "forum_blog")]),
+            "identity_details": self._extract_identity_details(deep_pages),
+        }
+        results["social_radar"] = social_radar
 
         return results
+
+    async def _deep_scrape_pages(self, base_pages: list[dict]) -> list[dict]:
+        """Launch parallel asynchronous workers to fetch and parse true HTML from sites."""
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=HEADERS) as client:
+            tasks = [self._fetch_and_extract_page(client, page) for page in base_pages]
+            processed_pages = await asyncio.gather(*tasks, return_exceptions=False)
+            return [p for p in processed_pages if p is not None]
+
+    async def _fetch_and_extract_page(self, client: httpx.AsyncClient, page: dict) -> dict:
+        """Download full page content and extract rich identifiers like OG metadata and bio text."""
+        url = page.get("url")
+        if not url or not url.startswith("http"):
+            return page
+            
+        # Skip binaries or likely non-html types
+        if any(ext in url.lower() for ext in ('.jpg', '.jpeg', '.png', '.gif', '.pdf', '.zip')):
+            return page
+
+        try:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "lxml")
+                
+                # 1. Upgrade Title using OG or actual title tag
+                og_title = soup.find("meta", property="og:title")
+                page_title = soup.title.string if soup.title else None
+                if og_title and og_title.get("content"):
+                    page["title"] = og_title.get("content")[:150]
+                elif page_title:
+                    page["title"] = page_title.strip()[:150]
+                
+                # 2. Get dynamic high-res thumbnail from OG image
+                og_img = soup.find("meta", property="og:image")
+                if og_img and og_img.get("content"):
+                    img_src = og_img.get("content")
+                    if img_src.startswith("/"):
+                        parsed = urllib.parse.urlparse(url)
+                        img_src = f"{parsed.scheme}://{parsed.netloc}{img_src}"
+                    page["thumbnail"] = img_src
+                
+                # 3. Pull Meta Description / Bio
+                og_desc = soup.find("meta", property="og:description")
+                meta_desc = soup.find("meta", attrs={"name": "description"})
+                rich_desc = ""
+                if og_desc and og_desc.get("content"):
+                    rich_desc = og_desc.get("content")
+                elif meta_desc and meta_desc.get("content"):
+                    rich_desc = meta_desc.get("content")
+                
+                # 4. Grab initial body text for RegEx context boosting
+                # Strip scripts/styles
+                for script in soup(["script", "style"]):
+                    script.decompose()
+                visible_text = soup.get_text(separator=' ', strip=True)[:1500]
+                
+                # Attach full contextual payload for identity extraction
+                page["description"] = rich_desc[:300]
+                page["raw_visible_text"] = visible_text # Will be read by _extract_identity_details
+                
+                # Log Success internally
+                print(f"    [+] Successfully deep-crawled: {self._get_domain(url)}")
+                
+        except Exception as e:
+            # If fetch fails, retain original search snippet data and move on silently
+            print(f"    [-] Deep-crawl timeout/refused: {self._get_domain(url)}")
+            pass
+            
+        return page
 
     async def _search_google_lens(self, image_bytes: bytes, filename: str) -> dict:
         """Automated Google Lens scraping to find Western social media and dating apps."""
@@ -580,7 +629,9 @@ class SearchEngine:
             url = p.get("url", "").lower()
             title = p.get("title", "")
             desc = p.get("description", "")
-            full_text = f"{title} {desc}"
+            raw_txt = p.get("raw_visible_text", "")
+            
+            full_text = f"{title} {desc} {raw_txt}"
 
             # ── Extract usernames from URLs ──
             for pattern, config in platform_parsers.items():
@@ -600,7 +651,7 @@ class SearchEngine:
                             })
 
             # ── Extract @ mentions from text ──
-            for text in [title, desc]:
+            for text in [title, desc, raw_txt]:
                 mentions = re.findall(r'@([a-zA-Z0-9_.]{3,30})', text)
                 for m in mentions:
                     usernames[f"@{m}"] += 1
@@ -614,14 +665,18 @@ class SearchEngine:
                     if not any(skip in email_lower for skip in ("example.com", "email.com", "test.", "noreply", "no-reply")):
                         emails[email_lower] += 1
 
-            # ── Extract Names from titles/descriptions ──
+            # ── Extract Names from titles/descriptions/full body ──
             for match in name_pattern.findall(title):
                 if match.lower() not in stop_names:
-                    names[match] += 3  # Titles get highest weight
+                    names[match] += 4  # Titles highest signal
             
             for match in name_pattern.findall(desc):
                 if match.lower() not in stop_names:
-                    names[match] += 1
+                    names[match] += 2
+                    
+            for match in name_pattern.findall(raw_txt[:800]):
+                if match.lower() not in stop_names:
+                    names[match] += 1 # Body signal
 
         # Deduplicate profile links by platform+username
         seen_profiles = set()
