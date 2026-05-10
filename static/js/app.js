@@ -360,8 +360,12 @@ function renderSearchTab(searchData) {
 
     // Likely Name Display (BIG)
     const displayName = identity.names.length > 0 ? identity.names[0] : "Unknown Entity detected (Scouring deep web...)";
-    html += `<div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; padding:15px; background:rgba(0,0,0,0.4); border-radius:10px; border-left: 4px solid var(--accent-main);">
-      <span style="font-size:32px;">👤</span>
+    const targetImageUrl = searchResults && searchResults.uploaded_file ? searchResults.uploaded_file.url : '';
+    
+    html += `<div style="display:flex; align-items:center; gap:18px; margin-bottom:18px; padding:15px; background:rgba(0,0,0,0.5); border-radius:12px; border-left: 5px solid var(--accent-main); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+      <div style="width:80px; height:80px; border-radius:8px; border:2px solid var(--accent-soft); overflow:hidden; flex-shrink:0; background:#111; box-shadow:0 0 15px rgba(255,107,53,0.2);">
+        ${targetImageUrl ? `<img src="${targetImageUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'">` : '<span style="font-size:32px; display:flex; height:100%; align-items:center; justify-content:center;">👤</span>'}
+      </div>
       <div style="flex:1;">
         <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1.5px; font-weight:600;">Identified Persona</div>
         <div style="font-size:20px; font-weight:800; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,0.5);">${displayName}</div>
