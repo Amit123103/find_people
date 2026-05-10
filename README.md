@@ -27,9 +27,35 @@ python main.py
 
 ## 🏗️ Updated System Architecture
 
-ImageFinder has evolved into an advanced **OSINT Identity Radar**. It utilizes an integrated asynchronous pipeline bridging local biometrics with deep-web active reconnaissance.
+### 📊 Visual Flow Architecture (No API Keys)
+```mermaid
+graph TD
+    subgraph "Premium Dark UI"
+        U1[Drag & Drop Upload] --> U2[Image Preview + Face Boxes]
+        U2 --> U3[Results Dashboard]
+        U3 --> T1[Face Analysis Tab]
+        U3 --> T2[Search Engines Tab]
+        U3 --> T3[Metadata Tab]
+        U3 --> T4[Image Fingerprint Tab]
+    end
 
-### 📊 Architectural Intelligence Workflow
+    subgraph "FastAPI Backend"
+        B1[Upload Endpoint]
+        B1 --> S1[OpenCV Face Detector]
+        B1 --> S2[Search URL Generator]
+        B1 --> S3[EXIF Metadata Extractor]
+        B1 --> S4[Color Palette Analyzer]
+        B1 --> S5[Perceptual Hash Engine]
+    end
+
+    U1 -- "POST /api/search" --> B1
+    S1 -. "Face data" .-> T1
+    S2 -. "Search links" .-> T2
+    S3 -. "EXIF" .-> T3
+    S5 -. "Hashes" .-> T4
+```
+
+### 🕵️ Detailed Intelligence Workflow
 ```mermaid
 graph TD
     subgraph "Input Layer"
