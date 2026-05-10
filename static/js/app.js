@@ -125,27 +125,7 @@ async function startSearch(file) {
     searchResults = await response.json();
     renderResults(searchResults);
     
-    // Automatically open search engines
-    setTimeout(() => {
-      openAllSearchEngines();
-      
-      const existing = document.querySelector('.error-toast');
-      if (existing) existing.remove();
-      
-      const toast = document.createElement('div');
-      toast.className = 'error-toast';
-      toast.style.cssText = `
-        position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
-        background:rgba(0, 212, 255, 0.95);color:#000;padding:14px 28px;
-        border-radius:12px;font-size:14px;font-weight:600;z-index:1000;
-        box-shadow:0 4px 20px rgba(0, 212, 255, 0.3);
-        animation:fadeIn 0.3s;
-        text-align: center;
-      `;
-      toast.innerHTML = '\ud83d\ude80 Automatically opening search engines... <br><span style="font-size:12px;font-weight:400;">If tabs did not open, please allow pop-ups for this site in your browser URL bar!</span>';
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 8000);
-    }, 1500);
+    // Removed automatic popup generator as per user preference to keep flow native
   } catch (error) {
     showError(`Search failed: ${error.message}`);
     hideLoading();
@@ -454,21 +434,39 @@ function renderSearchTab(searchData) {
     html += `</div>`;
   }
 
-  // Automated results next
-  if (searchData.active_results && searchData.active_results.length > 0) {
-    searchData.active_results.forEach(result => {
-      if (result.status === 'success') {
-        html += `
-          <div class="automated-result-card">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <span class="automated-badge">⚡ Auto Search</span>
-              <span style="font-weight:700;">${result.engine} — Results Ready!</span>
-            </div>
-            <p class="se-desc">${result.message}</p>
-            <a href="${result.url}" target="_blank" class="se-action" style="text-decoration:none;">View Results</a>
-          </div>`;
+  // 2. Direct Native Discoveries (Scraped directly by backend)
+  const allPages = searchData.pages_found || [];
+  if (allPages.length > 0) {
+    html += `<h3 style="margin-bottom:16px;font-size:18px;font-weight:700;color:#ffc996;">📥 Inline Intelligence Gathered</h3>
+             <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Direct webpage matches scanned securely via our automated OSINT tunnel.</p>`;
+    
+    html += `<div class="pages-found-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:16px; margin-bottom:32px;">`;
+    allPages.forEach(p => {
+       html += `
+         <a href="${p.url}" target="_blank" style="background:rgba(255,255,255,0.03); border:1px solid var(--border-glass); border-radius:12px; padding:16px; text-decoration:none; display:flex; flex-direction:column; gap:10px; transition:transform 0.2s, border-color 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.borderColor='var(--accent-main)'" onmouseout="this.style.transform='none';this.style.borderColor='var(--border-glass)'">
+           <div style="font-size:12px; color:var(--accent-amber); text-transform:uppercase; font-weight:600; letter-spacing:1px;">${p.source || 'Unknown Domain'}</div>
+           <div style="color:#fff; font-weight:700; font-size:14px; line-height:1.4;">${p.title}</div>
+           ${p.description ? `<div style="color:var(--text-muted); font-size:12px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${p.description}</div>` : ''}
+           <div style="margin-top:auto; color:var(--accent-soft); font-size:12px; text-decoration:underline; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${p.url}</div>
+         </a>
+       `;
+    });
+    html += `</div>`;
+  }
+
+  // 3. Similar Image Visual Grid
+  const simImgs = searchData.similar_images || [];
+  if (simImgs.length > 0) {
+    html += `<h3 style="margin-bottom:12px;font-size:18px;font-weight:700;color:#ffc996;">🖼️ Visually Similar Proxies</h3>
+             <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; margin-bottom:32px;">`;
+    simImgs.forEach(img => {
+      if (img.thumbnail) {
+        html += `<a href="${img.url || '#'}" target="_blank" style="flex:0 0 120px; height:120px; border-radius:8px; border:1px solid var(--border-glass); overflow:hidden; position:relative;">
+          <img src="${img.thumbnail}" style="width:100%; height:100%; object-fit:cover;">
+        </a>`;
       }
     });
+    html += `</div>`;
   }
 
   // Search engine cards
@@ -491,13 +489,7 @@ function renderSearchTab(searchData) {
 
   html += '</div>';
 
-  // Search all button
-  html += `
-    <div style="text-align:center;margin-top:24px;">
-      <button onclick="openAllSearchEngines()" class="upload-btn" style="font-size:15px;padding:14px 40px;">
-        🚀 Open All Search Engines
-      </button>
-    </div>`;
+  // Search all button removed as per user strict requirement for native-only immersion
 
   // Tips
   html += '<div class="search-tips"><h4>💡 Search Tips</h4>';
