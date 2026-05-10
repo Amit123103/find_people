@@ -229,6 +229,7 @@ class SearchEngine:
             files = {"encoded_image": (filename, image_bytes, "image/jpeg")}
             
             resp = await client.post(upload_url, files=files, headers=headers)
+            print(f"    [Google Lens] Upload status: {resp.status_code}")
             if resp.status_code != 200:
                 return {"pages": []}
                 
@@ -282,6 +283,7 @@ class SearchEngine:
             else:
                 search_url = str(resp.url)
 
+            print(f"    [Google Lens] Parsed {len(pages)} raw matches")
             return {
                 "pages": pages,
                 "search_url": search_url
@@ -298,6 +300,7 @@ class SearchEngine:
                 "https://yandex.com/images-apphost/cbir-id",
                 files=files,
             )
+            print(f"    [Yandex] CBir status: {resp.status_code}")
 
             if resp.status_code != 200:
                 return {"pages": [], "similar": []}

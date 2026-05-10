@@ -319,6 +319,7 @@ function drawFaceBoxes(faces) {
 
 function renderSearchTab(searchData) {
   const container = $('#tab-search');
+  const allPages = searchData.pages_found || [];
   let html = '';
 
   // 1. Social Radar & Persona Dossier Section
@@ -444,7 +445,6 @@ function renderSearchTab(searchData) {
   }
 
   // 2. Direct Native Discoveries (Scraped directly by backend)
-  const allPages = searchData.pages_found || [];
   if (allPages.length > 0) {
     html += `<h3 style="margin-bottom:16px;font-size:18px;font-weight:700;color:#ffc996;">📥 Inline Intelligence Gathered</h3>
              <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Direct webpage matches scanned securely via our automated OSINT tunnel.</p>`;
