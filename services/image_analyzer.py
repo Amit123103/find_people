@@ -41,6 +41,48 @@ class ImageAnalyzer:
         }
         return results
 
+    def extract_search_payload(self, image_bytes: bytes, analysis_result: dict) -> bytes:
+        """
+        Extracts the largest face from the image with optimized 35% padding buffer, 
+        formatting it specifically for highest search engine hit rates.
+        Falls back to original bytes if no face detected.
+        """
+        faces = analysis_result.get("faces", [])
+        if not faces:
+            return image_bytes # Fallback to original
+            
+        try:
+            # Sort by face area to get largest
+            largest_face = sorted(faces, key=lambda f: f["width"] * f["height"], reverse=True)[0]
+            
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return image_bytes
+                
+            ih, iw = img.shape[:2]
+            fx, fy, fw, fh = largest_face["x"], largest_face["y"], largest_face["width"], largest_face["height"]
+            
+            # Pad crop by 35% for context (ears, hair, background anchor) which search engines NEED
+            pad_w = int(fw * 0.35)
+            pad_h = int(fh * 0.35)
+            
+            # Compute bounded crop coords
+            x1 = max(0, fx - pad_w)
+            y1 = max(0, fy - int(pad_h * 1.3)) # Slightly more padding on top for hair
+            x2 = min(iw, fx + fw + pad_w)
+            y2 = min(ih, fy + fh + pad_h)
+            
+            crop = img[y1:y2, x1:x2]
+            success, encoded_img = cv2.imencode('.jpg', crop, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+            if success:
+                print(f"[*] Face located. Optimized and extracted query payload: {len(encoded_img)} bytes")
+                return encoded_img.tobytes()
+        except Exception as e:
+            print(f"[!] Error optimizing search payload: {e}")
+            
+        return image_bytes
+
     def _detect_faces(self, image_bytes: bytes) -> list[dict]:
         """Detect faces using OpenCV Haar Cascades with multi-pass detection."""
         nparr = np.frombuffer(image_bytes, np.uint8)
