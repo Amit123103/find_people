@@ -25,64 +25,64 @@ python main.py
 # http://127.0.0.1:8000
 ```
 
-## 🏗️ System Architecture
+## 🏗️ Updated System Architecture
 
-ImageFinder utilizes a modern, micro-service oriented modular architecture to achieve fast local processing and automated global search delivery.
+ImageFinder has evolved into an advanced **OSINT Identity Radar**. It utilizes an integrated asynchronous pipeline bridging local biometrics with deep-web active reconnaissance.
 
-### 📊 Architectural Workflow
+### 📊 Architectural Intelligence Workflow
 ```mermaid
 graph TD
-    subgraph "Client Layer"
-        UI[Web Dashboard / HTML5/CSS3] --> |Multipart Form Upload| API
+    subgraph "Input Layer"
+        UI[Glassmorphism UI] -->|Fetch API Upload| RT[FastAPI Router]
     end
 
-    subgraph "API Layer (FastAPI)"
-        API[FastAPI Router] --> V[Validation Service]
-        V --> |Save| Disk[(Local Storage /uploads)]
-        V --> AP[Analysis Pipeline]
+    subgraph "Layer 1: Local Forensics"
+        RT --> FP[Forensic Pipeline]
+        FP --> FD[Biometric Face Detection]
+        FP --> MT[EXIF & Metadata Scan]
+        FP --> CL[K-Means Color Signature]
+        FP --> HS[Perceptual Hash Printer]
     end
 
-    subgraph "Local Analysis Pipeline"
-        direction TB
-        AP --> FD[Face Detection Engine]
-        AP --> ME[Metadata & EXIF Extractor]
-        AP --> CA[K-Means Color Analysis]
-        AP --> HE[Perceptual Hash Engine]
-
-        subgraph "Compute Engines"
-            FD --- FD_O[OpenCV Haar Cascades]
-            ME --- ME_E[exifread + Pillow]
-            CA --- CA_K[OpenCV K-Means]
-            HE --- HE_I[imagehash suite]
-        end
+    subgraph "Layer 2: Active Reconnaissance (Async)"
+        RT --> SR[Search Aggregator]
+        SR -->|Multipart Upload| YX[Yandex CBir Scraper]
+        SR -->|Multipart Upload| GL[Google Lens Engine]
+        SR -->|Temp Linkage| UH[Host (0x0 / Catbox)]
+        UH -->|HTTP GET Injection| BB[Bing / TinEye / PimEyes]
     end
 
-    subgraph "External OSINT Integration"
-        AP --> SE[Search Aggregator]
-        SE --> |GET Params| GS[Google Lens / Bing / TinEye]
-        SE --> |Multipart Upload| YA[Yandex CBir Automation]
-        SE --> |Hash Query| FC[FaceCheck.ID]
+    subgraph "Layer 3: Social Radar & Intelligence"
+        YX -->|Raw HTML/JSON| DC[Deduplicator & Aggregator]
+        GL -->|Response Stream| DC
+        
+        DC --> IE[Identity Extraction Engine]
+        
+        IE -->|Weight Matching| EN[Entity Names]
+        IE -->|Domain Map| SM[Social Handles]
+        IE -->|Regex Regex| EM[Email Miner]
+        
+        EN --> DR[Dossier Builder]
+        SM --> DR
+        EM --> DR
     end
 
-    YA --> |Results| API
-    FD --> |Data| API
-    ME --> |Data| API
-    CA --> |Data| API
-    HE --> |Data| API
-
-    API --> |JSON Packet| UI
+    DR -->|Consolidated JSON| RT
+    FD -->|Crops/Data| RT
+    RT -->|Full Dossier Response| UI
 ```
 
-### ⚙️ Component Breakdown
+### ⚙️ Advanced OSINT Pipeline Breakdown
 
-1.  **The Web Dashboard (Frontend)**: A state-of-the-art dark mode glassmorphism SPA built using vanilla technologies. It efficiently pipelines binary image data via the Fetch API and streams dynamic results directly into DOM components for zero-latency UX.
-2.  **The Core Router (FastAPI Backend)**: Asynchronous gateway orchestrating analysis workers. Highly efficient asynchronous IO for multiple concurrent uploads.
-3.  **Local Analysis Engines**:
-    *   **Face Detector**: Dual-stage OpenCV detector utilizing `haarcascade_frontalface_default` and `haarcascade_profileface`. Performs Intersection-over-Union (IoU) filtering and base64 thumbnail generation for identified crops.
-    *   **EXIF Processor**: Leverages binary-stream extraction via `exifread` providing GPS coordinate lookup mapping direct to Google Maps.
-    *   **Color Clusterer**: Vectorizes pixel matrices, transforming RGB space into cluster centers using iterative K-Means solvers.
-    *   **Hash Generator**: Generates unique digital distinct fingerprint utilizing Average Hashing, Difference Hashing, and Perceptual Hashing to permit robust, rotation/scaling agnostic image matching.
-4.  **OSINT Aggregator**: Converts local binary payloads into HTTP-ready multipart objects targeting proprietary global visual search indexers (Yandex, TinEye) bypassing fixed limits.
+1.  **The Web Dashboard**: Real-time SPA leveraging vanilla JS dynamically generating glass panels for visual telemetry.
+2.  **Active Recognition Engines**:
+    *   **Dual-Vector Scrapers**: Parallel asynchronously executing HTTPX modules that dynamically bypass standard endpoint restrictions by imitating native mobile device signatures (`User-Agent` masquerading) for Google Lens and Yandex.
+    *   **Volatile Payload Hosting**: Integrates logic to broadcast binary signatures to transient repositories (`0x0.st`, `catbox.moe`) solely to construct viable URLs for recursive visual ingestion by secondary indexers.
+3.  **Advanced OSINT Social Radar**:
+    *   **Entity Extraction Regex Engine**: Scans cumulative search indexes using complex frequent-name capitalization pair clustering, excluding stop-phrase dictionaries to yield high-confidence identity tags.
+    *   **Domain Classification**: Granulates hits into verified taxonomies: `social_media`, `dating_app`, `forum_blog`, and `general_web`.
+    *   **Platform Sub-Path Parser**: Hardcoded regex configurations targeting 12+ prime targets (Instagram, LinkedIn, TikTok, X/Twitter, YouTube) that slice URL fragments into clean `@usernames` and canonical direct links.
+4.  **Local Biometrics**: High-speed cascade segmentation generating standard and profile detection bounding boxes, calculating Intersection-over-Union (IoU) to prevent overlapping ghost identifications.
 
 ## Tech Stack
 
