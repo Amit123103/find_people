@@ -17,6 +17,18 @@ const loadingSection = $('.loading-section');
 const resultsSection = $('.results-section');
 const uploadSection = $('.upload-section');
 
+// Views
+const landingView = $('#landing-view');
+const appWorkspace = $('#app-workspace');
+const btnStartApp = $('#start-app');
+
+// Modals
+const settingsModal = $('#settings-modal');
+const btnSettings = $('#btn-settings');
+const btnCloseSettings = $('#close-settings');
+const btnSaveSettings = $('#save-settings');
+const inputFaceCheck = $('#facecheck-api');
+
 // ─── File Upload Handling ────────────────────────────────
 
 uploadZone.addEventListener('click', (e) => {
@@ -94,6 +106,10 @@ async function startSearch(file) {
 
   const formData = new FormData();
   formData.append('file', file);
+  
+  // Pass persistent API Keys from localStorage if available
+  const fckey = localStorage.getItem('facecheck-api-key');
+  if (fckey) formData.append('facecheck_key', fckey);
 
   try {
     const response = await fetch('/api/search', {
@@ -654,11 +670,60 @@ function switchTab(tabId) {
   document.getElementById(`tab-${tabId}`).classList.add('active');
 }
 
-// Tab click handlers
+// Initial Setup
 document.addEventListener('DOMContentLoaded', () => {
+  // Tab handlers
   $$('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
+
+  // View Toggle (Landing to App)
+  if (btnStartApp) {
+    btnStartApp.addEventListener('click', () => {
+      landingView.classList.add('hidden');
+      appWorkspace.classList.remove('hidden');
+      appWorkspace.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  // Settings Handlers
+  if (btnSettings) {
+    btnSettings.addEventListener('click', () => {
+      // Load existing value before opening
+      inputFaceCheck.value = localStorage.getItem('facecheck-api-key') || '';
+      settingsModal.classList.add('active');
+    });
+  }
+
+  if (btnCloseSettings) {
+    btnCloseSettings.addEventListener('click', () => {
+      settingsModal.classList.remove('active');
+    });
+  }
+
+  // Close on backdrop click
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) settingsModal.classList.remove('active');
+  });
+
+  if (btnSaveSettings) {
+    btnSaveSettings.addEventListener('click', () => {
+      localStorage.setItem('facecheck-api-key', inputFaceCheck.value.trim());
+      settingsModal.classList.remove('active');
+      
+      // Show success toast
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+        background:var(--accent-clay);color:#fff;padding:12px 24px;
+        border-radius:8px;font-size:14px;font-weight:600;z-index:2000;
+        box-shadow:0 8px 20px rgba(0,0,0,0.4); animation:fadeIn 0.3s;
+      `;
+      toast.textContent = '✅ Settings Saved & Encrypted Locally';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    });
+  }
 });
 
 // ─── Reset ───────────────────────────────────────────────

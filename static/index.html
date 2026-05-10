@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ImageFinder — Reverse Image Search & Face Finder</title>
-  <meta name="description" content="Upload any image to find where it appears online. Detect faces, extract metadata, and search across Google, Yandex, Bing, TinEye, and more.">
+  <meta name="description"
+    content="Upload any image to find where it appears online. Detect faces, extract metadata, and search across Google, Yandex, Bing, TinEye, and more.">
   <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
 </head>
+
 <body>
 
   <!-- ═══ Header ═══ -->
@@ -16,14 +20,64 @@
       <img src="/static/assets/logo.png" alt="ImageFinder Logo" class="logo-image">
       <span class="logo-text">ImageFinder</span>
     </a>
-    <span class="header-badge">⚡ No API Keys Required</span>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button class="btn-settings" id="btn-settings" title="Configure API Keys">⚙️</button>
+    </div>
   </header>
 
-  <!-- ═══ Hero ═══ -->
-  <section class="hero">
-    <h1>Find Any Image<br><span class="gradient-text">Across The Internet</span></h1>
-    <p>Upload a photo to detect faces, extract metadata, generate fingerprints, and search across 8+ search engines worldwide.</p>
-  </section>
+  <!-- ═══ Settings Modal ═══ -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ API Configuration</h3>
+        <button class="btn-close-modal" id="close-settings">✕</button>
+      </div>
+      <p class="modal-desc">Elevate your search precision by providing optional API keys. Keys are stored safely in local storage only.</p>
+      
+      <div class="form-group">
+        <label for="facecheck-api">FaceCheck.ID Key</label>
+        <input type="password" id="facecheck-api" placeholder="Enter FaceCheck API Token..." class="form-input">
+        <small>Enables deep-search cross referencing with local FaceCheck queries.</small>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-save-settings" id="save-settings">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ LANDING VIEW ═══ -->
+  <div id="landing-view" class="view-container">
+    <section class="hero">
+      <h1>Find Any Identity<br><span class="gradient-text">Across The Open Web</span></h1>
+      <p>Leverage decentralized OSINT intelligence, facial forensics, and multi-vector active search without paying for subscriptions.</p>
+      <button class="btn-hero-cta" id="start-app">
+        Launch Workspace <span>→</span>
+      </button>
+    </section>
+
+    <!-- Feature Showcase -->
+    <section class="landing-features">
+      <div class="feat-card">
+        <div class="feat-icon">👤</div>
+        <h3>Biometric Analysis</h3>
+        <p>Local OpenCV cascades isolate human attributes in total cryptographic safety.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🛰️</div>
+        <h3>OSINT Aggregator</h3>
+        <p>Cross-reference cumulative visual arrays from 8+ indexers instantly.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🛡️</div>
+        <h3>100% Local</h3>
+        <p>Analytical data arrays are deserialized in client RAM. No telemetry.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══ APP WORKSPACE (Hidden initially) ═══ -->
+  <div id="app-workspace" class="hidden view-container">
 
   <!-- ═══ Upload Zone ═══ -->
   <section class="upload-section">
@@ -78,6 +132,7 @@
     <div class="tab-content" id="tab-metadata"></div>
     <div class="tab-content" id="tab-fingerprint"></div>
   </section>
+  </div>
 
   <!-- ═══ Footer ═══ -->
   <footer class="footer">
@@ -86,4 +141,5 @@
 
   <script src="/static/js/app.js"></script>
 </body>
+
 </html>

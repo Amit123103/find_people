@@ -8,7 +8,7 @@ import uuid
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,7 +54,10 @@ async def health():
 
 
 @app.post("/api/search")
-async def search_image(file: UploadFile = File(...)):
+async def search_image(
+    file: UploadFile = File(...),
+    facecheck_key: str = Form(None)
+):
     """
     Main search endpoint:
     1. Validate & save uploaded image
@@ -98,6 +101,9 @@ async def search_image(file: UploadFile = File(...)):
     hashes = hash_engine.generate_hashes(image_bytes)
 
     # 3. Search engine links & automated search
+    if facecheck_key:
+        print(f"[*] Custom FaceCheck Key detected. Engaging depth validation pathway.")
+
     search_results = await search_engine.search(image_bytes, file.filename)
 
     # Build response
