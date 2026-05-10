@@ -107,6 +107,7 @@
    font-weight: 700;
    background: linear-gradient(135deg, #fdfcf9, #ffc996);
    -webkit-background-clip: text;
+   background-clip: text;
    -webkit-text-fill-color: transparent;
    letter-spacing: -0.5px;
  }
@@ -143,6 +144,7 @@
 .hero h1 .gradient-text {
   background: var(--gradient-natural);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -181,6 +183,7 @@
   padding: 2px;
   background: var(--gradient-main);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0;
@@ -412,6 +415,7 @@
   font-weight: 800;
   background: var(--gradient-main);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
