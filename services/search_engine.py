@@ -125,9 +125,9 @@ class SearchEngine:
                 unique_pages.append(p)
 
         # --- START DEEP CRAWL INJECTOR ---
-        # Identify Top 10 high-signal URLs that we detected from SERP
-        top_urls = unique_pages[:12]
-        print(f"[*] Found {len(unique_pages)} base pages. Deep-scraping top {len(top_urls)} for full identity extraction...")
+        # Identify Top 25 high-signal URLs that we detected from SERP
+        top_urls = unique_pages[:25]
+        print(f"[*] Found {len(unique_pages)} base pages. Aggressively deep-scraping top {len(top_urls)} for comprehensive OSINT...")
         
         deep_pages = await self._deep_scrape_pages(top_urls)
         
@@ -575,6 +575,8 @@ class SearchEngine:
         }
         name_pattern = re.compile(r'\b[A-Z][a-z\']{1,20}(?:\s+[A-Z][a-z\']{1,20}){1,2}\b')
         email_pattern = re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}')
+        # Standard global phone formats (+XX-XXX-XXX-XXXX etc)
+        phone_pattern = re.compile(r'(\+\d{1,3}[-\s.]??\d{3}[-\s.]??\d{3}[-\s.]??\d{4}|\(\d{3}\)\s*\d{3}[-\s.]??\d{4}|\b\d{3}[-\s.]??\d{3}[-\s.]??\d{4}\b)')
 
         # Platform URL parsers
         platform_parsers = {
@@ -626,7 +628,25 @@ class SearchEngine:
                 "name": "GitHub", "prefix": "",
                 "skip": ("topics", "trending", "explore", "settings", "notifications"),
             },
+            "t.me/": {
+                "name": "Telegram", "prefix": "@",
+                "skip": ("share", "addstickers", "contact"),
+            },
+            "snapchat.com/add/": {
+                "name": "Snapchat", "prefix": "@",
+                "skip": (),
+            },
+            "wa.me/": {
+                "name": "WhatsApp", "prefix": "+",
+                "skip": (),
+            },
+            "discord.gg/": {
+                "name": "Discord", "prefix": "invite/",
+                "skip": (),
+            },
         }
+        
+        phones = Counter()
 
         for p in pages:
             url = p.get("url", "").lower()
@@ -668,6 +688,14 @@ class SearchEngine:
                     if not any(skip in email_lower for skip in ("example.com", "email.com", "test.", "noreply", "no-reply")):
                         emails[email_lower] += 1
 
+            # ── Extract Phone Numbers from text ──
+            for text in [title, desc, raw_txt[:1000]]:
+                found_phones = phone_pattern.findall(text)
+                for ph in found_phones:
+                    cleaned = ph.strip().replace("(", "").replace(")", "").replace(".", "").replace("-", "")
+                    if len(cleaned.replace(" ", "")) >= 8:
+                         phones[ph.strip()] += 1
+
             # ── Extract Names from titles/descriptions/full body ──
             for match in name_pattern.findall(title):
                 if match.lower() not in stop_names:
@@ -693,6 +721,7 @@ class SearchEngine:
         potential_names = [n[0] for n in names.most_common(5) if n[1] > 1 or len(names) == 1]
         potential_usernames = [u[0] for u in usernames.most_common(10)]
         potential_emails = [e[0] for e in emails.most_common(5)]
+        potential_phones = [p[0] for p in phones.most_common(5)]
 
         # Build a confidence-ranked person profile
         person_profile = {}
@@ -701,6 +730,8 @@ class SearchEngine:
             person_profile["alternate_names"] = potential_names[1:]
         if potential_emails:
             person_profile["emails"] = potential_emails
+        if potential_phones:
+            person_profile["phones"] = potential_phones
         if unique_profiles:
             person_profile["profiles"] = unique_profiles[:10]
 
@@ -708,7 +739,8 @@ class SearchEngine:
             "names": potential_names,
             "usernames": potential_usernames,
             "emails": potential_emails,
-            "profile_links": unique_profiles[:10],
+            "phones": potential_phones,
+            "profile_links": unique_profiles[:12],
             "person_profile": person_profile,
             "total_sources_analyzed": len(pages),
         }

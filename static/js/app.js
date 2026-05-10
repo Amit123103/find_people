@@ -341,7 +341,7 @@ function renderSearchTab(searchData) {
   }
   // --- END FALLBACK ---
 
-  const hasIdentity = identity.names.length > 0 || identity.usernames.length > 0 || identity.emails.length > 0;
+  const hasIdentity = identity.names.length > 0 || identity.usernames.length > 0 || identity.emails.length > 0 || (identity.phones && identity.phones.length > 0);
   const hasSocialHits = radar.total_social_hits > 0;
 
   if (hasIdentity || hasSocialHits || allPages.length > 0) {
@@ -385,11 +385,22 @@ function renderSearchTab(searchData) {
 
     // Contact Data
     if (identity.emails && identity.emails.length > 0) {
-      html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; padding:12px; background:rgba(0,0,0,0.25); border-radius:10px;">
+      html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; padding:12px; background:rgba(0,0,0,0.25); border-radius:10px;">
         <span style="font-size:20px;">📧</span>
         <div>
           <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:1px;">Secured Correspondence</div>
           <div style="font-size:14px; font-weight:700; color:var(--accent-amber);">${identity.emails.join(', ')}</div>
+        </div>
+      </div>`;
+    }
+
+    // Captured Phone Numbers
+    if (identity.phones && identity.phones.length > 0) {
+      html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; padding:12px; background:rgba(0,0,0,0.25); border-radius:10px; border:1px dashed rgba(255,107,53,0.3);">
+        <span style="font-size:20px;">📞</span>
+        <div>
+          <div style="font-size:11px; color:var(--accent-soft); text-transform:uppercase; font-weight:700; letter-spacing:1px;">Detected Contact Numbers</div>
+          <div style="font-size:15px; font-weight:800; color:#fff; letter-spacing:0.5px;">${identity.phones.join(' | ')}</div>
         </div>
       </div>`;
     }
@@ -402,7 +413,8 @@ function renderSearchTab(searchData) {
       
       const platformIcons = {
         'Instagram': '📷', 'Facebook': '👥', 'Twitter/X': '🐦', 'TikTok': '🎵',
-        'LinkedIn': '💼', 'Reddit': '🤖', 'Pinterest': '📌', 'YouTube': '▶️', 'GitHub': '💻'
+        'LinkedIn': '💼', 'Reddit': '🤖', 'Pinterest': '📌', 'YouTube': '▶️', 
+        'GitHub': '💻', 'Telegram': '✈️', 'Snapchat': '👻', 'WhatsApp': '💬', 'Discord': '👾'
       };
 
       identity.profile_links.forEach(pl => {
