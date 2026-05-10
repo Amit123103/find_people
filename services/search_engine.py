@@ -570,7 +570,7 @@ class SearchEngine:
             "privacy policy", "terms of", "cookie policy", "all rights",
             "powered by", "built with", "view all", "see more",
         }
-        name_pattern = re.compile(r'\b[A-Z][a-z]{1,15} [A-Z][a-z]{1,15}\b')
+        name_pattern = re.compile(r'\b[A-Z][a-z\']{1,20}(?:\s+[A-Z][a-z\']{1,20}){1,2}\b')
         email_pattern = re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}')
 
         # Platform URL parsers

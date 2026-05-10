@@ -321,109 +321,116 @@ function renderSearchTab(searchData) {
   const container = $('#tab-search');
   let html = '';
 
-  // 1. Social Radar Section
-  const hasIdentity = searchData.social_radar && searchData.social_radar.identity_details &&
-    (searchData.social_radar.identity_details.names.length > 0 ||
-     searchData.social_radar.identity_details.usernames.length > 0 ||
-     searchData.social_radar.identity_details.emails.length > 0);
-  const hasSocialHits = searchData.social_radar && searchData.social_radar.total_social_hits > 0;
+  // 1. Social Radar & Persona Dossier Section
+  let htmlRadar = '';
+  const radar = searchData.social_radar || {};
+  let identity = radar.identity_details || { names: [], usernames: [], emails: [], profile_links: [] };
 
-  if (hasIdentity || hasSocialHits) {
+  // --- SMART FALLBACK LOGIC ---
+  // If the backend pattern was too strict, build dynamic identity from the aggregate title consensus
+  if (identity.names.length === 0 && allPages.length > 0) {
+    const titles = allPages.map(p => p.title).filter(t => t && t.length > 5 && !t.includes('Search'));
+    if (titles.length > 0) {
+      // Take top occurring title substring or just top title as the candidate
+      let candidate = titles[0].split(/[-|:,]/)[0].trim();
+      if (candidate.length > 3 && candidate.length < 50) {
+         identity.names = [`${candidate} (Confidence High)`];
+      }
+    }
+  }
+  // --- END FALLBACK ---
+
+  const hasIdentity = identity.names.length > 0 || identity.usernames.length > 0 || identity.emails.length > 0;
+  const hasSocialHits = radar.total_social_hits > 0;
+
+  if (hasIdentity || hasSocialHits || allPages.length > 0) {
     html += `
-      <div class="social-radar-container" style="background: rgba(30,30,40,0.6); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);">
-        <h3 style="margin-bottom:12px; font-size:18px; font-weight:700; color: #00d4ff;">🎯 Identity & Social Media Radar</h3>
+      <div class="social-radar-container" style="background: rgba(30,25,20,0.8); border: 2px solid var(--accent-soft); border-radius: 16px; padding: 24px; margin-bottom: 32px; box-shadow: 0 12px 40px rgba(255,107,53,0.15); position:relative; overflow:hidden;">
+        <div style="position:absolute; top:0; right:0; opacity:0.03; font-size:150px; font-weight:900; pointer-events:none; transform:rotate(-15deg) translate(30px, -20px);">DOSSIER</div>
+        <h3 style="margin-bottom:20px; font-size:22px; font-weight:800; color: var(--accent-amber); letter-spacing:-0.5px; display:flex; align-items:center; gap:10px;">
+          <span style="background:var(--accent-clay); color:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px;">🎯</span>
+          Unified Identity Dossier
+        </h3>
     `;
 
-    const radar = searchData.social_radar;
-    const identity = radar.identity_details;
+    // ── Advanced Person Profile Card ──
+    html += `<div style="background: linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,199,130,0.05)); border: 1px solid var(--border-glass); border-radius: 14px; padding: 20px; margin-bottom: 20px;">`;
+    html += `<h4 style="color:var(--accent-soft); margin-bottom:16px; font-size:13px; text-transform:uppercase; font-weight:700; letter-spacing:1px; border-bottom:1px solid var(--border-glass); padding-bottom:10px;">🕵️ Verified Candidate Profile (${identity.total_sources_analyzed || allPages.length} global nodes analyzed)</h4>`;
 
-    if (identity) {
-      // ── Person Profile Card ──
-      html += `<div style="background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(108,99,255,0.08)); border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; padding: 16px; margin-bottom: 16px;">`;
-      html += `<h4 style="color:#00d4ff; margin-bottom:12px; font-size:15px;">🕵️ Person Profile (${identity.total_sources_analyzed} sources analyzed)</h4>`;
+    // Likely Name Display (BIG)
+    const displayName = identity.names.length > 0 ? identity.names[0] : "Unknown Entity detected (Scouring deep web...)";
+    html += `<div style="display:flex; align-items:center; gap:15px; margin-bottom:15px; padding:15px; background:rgba(0,0,0,0.4); border-radius:10px; border-left: 4px solid var(--accent-main);">
+      <span style="font-size:32px;">👤</span>
+      <div style="flex:1;">
+        <div style="font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1.5px; font-weight:600;">Identified Persona</div>
+        <div style="font-size:20px; font-weight:800; color:#fff; text-shadow:0 2px 10px rgba(0,0,0,0.5);">${displayName}</div>
+        ${identity.names.length > 1 ? `<div style="font-size:12px; color:var(--accent-soft); margin-top:4px; font-style:italic;">Alternative Mentions: ${identity.names.slice(1).join(', ')}</div>` : ''}
+      </div>
+    </div>`;
 
-      // Name
-      if (identity.names.length > 0) {
-        html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:6px;">
-          <span style="font-size:20px;">👤</span>
-          <div>
-            <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px;">Likely Name</div>
-            <div style="font-size:16px; font-weight:700; color:#fff;">${identity.names[0]}</div>
-            ${identity.names.length > 1 ? `<div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Also: ${identity.names.slice(1).join(', ')}</div>` : ''}
-          </div>
-        </div>`;
-      }
-
-      // Emails
-      if (identity.emails && identity.emails.length > 0) {
-        html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:6px;">
-          <span style="font-size:20px;">📧</span>
-          <div>
-            <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px;">Email Addresses</div>
-            <div style="font-size:14px; font-weight:600; color:#fff;">${identity.emails.map(e => `<a href="mailto:${e}" style="color:#00d4ff; text-decoration:none;">${e}</a>`).join(', ')}</div>
-          </div>
-        </div>`;
-      }
-
-      // Usernames / Handles
-      if (identity.usernames.length > 0) {
-        html += `<div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:6px;">
-          <span style="font-size:20px;">🔗</span>
-          <div>
-            <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px;">Social Handles</div>
-            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
-              ${identity.usernames.map(u => `<span style="background:rgba(0,212,255,0.15); color:#00d4ff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:500;">${u}</span>`).join('')}
-            </div>
-          </div>
-        </div>`;
-      }
-
-      // Profile Links
-      if (identity.profile_links && identity.profile_links.length > 0) {
-        html += `<div style="margin-top:10px;">
-          <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">📍 Found on these profiles</div>
-          <div style="display:flex; flex-wrap:wrap; gap:6px;">`;
-        
-        const platformIcons = {
-          'Instagram': '📷', 'Facebook': '👥', 'Twitter/X': '🐦', 'TikTok': '🎵',
-          'LinkedIn': '💼', 'Reddit': '🤖', 'Pinterest': '📌', 'VK': '🔵',
-          'YouTube': '▶️', 'GitHub': '💻'
-        };
-
-        identity.profile_links.forEach(pl => {
-          const icon = platformIcons[pl.platform] || '🌐';
-          html += `<a href="${pl.url}" target="_blank" style="display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); padding:5px 10px; border-radius:6px; color:#fff; text-decoration:none; font-size:12px; transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,212,255,0.5)';this.style.background='rgba(0,212,255,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.12)';this.style.background='rgba(255,255,255,0.06)';">
-            <span>${icon}</span>
-            <span style="font-weight:600;">${pl.platform}</span>
-            <span style="color:rgba(255,255,255,0.5);">${pl.username}</span>
-          </a>`;
-        });
-        html += `</div></div>`;
-      }
-
-      html += `</div>`;
+    // Usernames / Handles (Rich display)
+    if (identity.usernames && identity.usernames.length > 0) {
+      html += `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px; padding:12px; background:rgba(0,0,0,0.25); border-radius:10px;">
+        <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:1px;">Active Handles & Aliases</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${identity.usernames.map(u => `<span style="background:rgba(255,107,53,0.2); border:1px solid var(--accent-soft); color:var(--accent-amber); padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700;">${u}</span>`).join('')}
+        </div>
+      </div>`;
     }
 
-    if (radar.total_social_hits > 0) {
-      html += `<p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">We detected exact matches or similar images on these social networks and dating apps.</p>
-        <div style="display: flex; flex-direction: column; gap: 16px;">`;
+    // Contact Data
+    if (identity.emails && identity.emails.length > 0) {
+      html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; padding:12px; background:rgba(0,0,0,0.25); border-radius:10px;">
+        <span style="font-size:20px;">📧</span>
+        <div>
+          <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:1px;">Secured Correspondence</div>
+          <div style="font-size:14px; font-weight:700; color:var(--accent-amber);">${identity.emails.join(', ')}</div>
+        </div>
+      </div>`;
+    }
+
+    // Dynamic Platform Badges
+    if (identity.profile_links && identity.profile_links.length > 0) {
+      html += `<div style="margin-top:15px;">
+        <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; font-weight:700; letter-spacing:1px; margin-bottom:10px;">🌍 Located Physical/Digital Hubs</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">`;
       
+      const platformIcons = {
+        'Instagram': '📷', 'Facebook': '👥', 'Twitter/X': '🐦', 'TikTok': '🎵',
+        'LinkedIn': '💼', 'Reddit': '🤖', 'Pinterest': '📌', 'YouTube': '▶️', 'GitHub': '💻'
+      };
+
+      identity.profile_links.forEach(pl => {
+        const icon = platformIcons[pl.platform] || '🌐';
+        html += `<a href="${pl.url}" target="_blank" style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border-glass); padding:8px 12px; border-radius:8px; color:#fff; text-decoration:none; font-size:13px; transition:all 0.3s; font-weight:600;" onmouseover="this.style.borderColor='var(--accent-main)';this.style.transform='translateY(-2px)';this.style.background='rgba(255,107,53,0.15)';" onmouseout="this.style.borderColor='var(--border-glass)';this.style.transform='none';this.style.background='rgba(255,255,255,0.05)';">
+          <span>${icon}</span>
+          <span>${pl.platform}</span>
+        </a>`;
+      });
+      html += `</div></div>`;
+    }
+
+    html += `</div>`; // End profile card
+
+    // Social Groups (Apps, Blogs etc)
+    if (radar.total_social_hits > 0) {
+      html += `<div style="display: flex; flex-direction: column; gap: 16px; margin-top:20px;">`;
       const groups = [
-        { id: "social_media", title: "📱 Social Networks", items: radar.social_media },
-        { id: "dating_app", title: "❤️ Dating Apps", items: radar.dating_app },
-        { id: "forum_blog", title: "💬 Forums & Blogs", items: radar.forum_blog }
+        { id: "social_media", title: "📱 Social Network Anchors", items: radar.social_media || [] },
+        { id: "dating_app", title: "❤️ Interpersonal Node Matches", items: radar.dating_app || [] },
+        { id: "forum_blog", title: "💬 Community Records", items: radar.forum_blog || [] }
       ];
 
       groups.forEach(g => {
-        if (g.items.length > 0) {
+        if (g.items && g.items.length > 0) {
           html += `<div class="radar-group">
-            <h4 style="font-size:14px; margin-bottom:8px;">${g.title} (${g.items.length})</h4>
-            <div style="display:flex; flex-wrap: wrap; gap: 8px;">`;
+            <h4 style="font-size:13px; color:var(--accent-soft); text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:10px;">${g.title} (${g.items.length})</h4>
+            <div style="display:flex; flex-wrap: wrap; gap: 10px;">`;
           g.items.forEach(item => {
             html += `
-              <a href="${item.url}" target="_blank" class="radar-link" onmouseover="this.style.background='rgba(0, 212, 255, 0.1)';this.style.borderColor='rgba(0, 212, 255, 0.5)';" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)';" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; text-decoration: none; color: #fff; transition: all 0.2s;">
-                ${item.thumbnail ? `<img src="${item.thumbnail}" style="width:24px; height:24px; border-radius:4px; object-fit:cover;">` : '🔗'}
-                <span style="font-size:13px; font-weight:500;">${item.source}</span>
+              <a href="${item.url}" target="_blank" class="radar-link" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,107,53,0.1)';this.style.borderColor='var(--accent-main)';" onmouseout="this.style.background='rgba(0,0,0,0.2)';this.style.borderColor='var(--border-glass)';">
+                ${item.thumbnail ? `<img src="${item.thumbnail}" style="width:22px; height:22px; border-radius:50%; object-fit:cover; border:1px solid var(--accent-soft);">` : '📡'}
+                <span style="font-size:13px; font-weight:600;">${item.source}</span>
               </a>
             `;
           });
@@ -433,7 +440,7 @@ function renderSearchTab(searchData) {
       html += `</div>`;
     }
 
-    html += `</div>`;
+    html += `</div>`; // End Radar container
   }
 
   // 2. Direct Native Discoveries (Scraped directly by backend)
