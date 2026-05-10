@@ -1,0 +1,698 @@
+/* ═══════════════════════════════════════════════════════════
+   ImageFinder — Frontend Application Logic
+   ═══════════════════════════════════════════════════════════ */
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// ─── State ───────────────────────────────────────────────
+let currentFile = null;
+let searchResults = null;
+
+// ─── DOM Elements ────────────────────────────────────────
+const uploadZone = $('#upload-zone');
+const fileInput = $('#file-input');
+const previewSection = $('.preview-section');
+const loadingSection = $('.loading-section');
+const resultsSection = $('.results-section');
+const uploadSection = $('.upload-section');
+
+// ─── File Upload Handling ────────────────────────────────
+
+uploadZone.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  fileInput.click();
+});
+
+// Also handle the button directly in case zone click fails
+const uploadBtn = uploadZone.querySelector('.upload-btn');
+if (uploadBtn) {
+  uploadBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fileInput.click();
+  });
+}
+
+uploadZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadZone.classList.add('drag-over');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('drag-over');
+});
+
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) handleFile(files[0]);
+});
+
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp', 'image/gif', 'image/tiff'];
+  if (!validTypes.includes(file.type)) {
+    showError('Unsupported file type. Please upload JPG, PNG, WebP, BMP, GIF, or TIFF.');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showError('File too large. Maximum size is 10 MB.');
+    return;
+  }
+  currentFile = file;
+  showPreview(file);
+  startSearch(file);
+}
+
+// ─── Image Preview ───────────────────────────────────────
+
+function showPreview(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewImg = $('#preview-img');
+    previewImg.src = e.target.result;
+    previewImg.onload = () => {
+      $('#preview-filename').textContent = file.name;
+      previewSection.style.display = 'block';
+      uploadSection.style.display = 'none';
+    };
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Search Pipeline ─────────────────────────────────────
+
+async function startSearch(file) {
+  showLoading();
+  resultsSection.style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.detail || 'Search failed');
+    }
+
+    searchResults = await response.json();
+    renderResults(searchResults);
+    
+    // Automatically open search engines
+    setTimeout(() => {
+      openAllSearchEngines();
+      
+      const existing = document.querySelector('.error-toast');
+      if (existing) existing.remove();
+      
+      const toast = document.createElement('div');
+      toast.className = 'error-toast';
+      toast.style.cssText = `
+        position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+        background:rgba(0, 212, 255, 0.95);color:#000;padding:14px 28px;
+        border-radius:12px;font-size:14px;font-weight:600;z-index:1000;
+        box-shadow:0 4px 20px rgba(0, 212, 255, 0.3);
+        animation:fadeIn 0.3s;
+        text-align: center;
+      `;
+      toast.innerHTML = '\ud83d\ude80 Automatically opening search engines... <br><span style="font-size:12px;font-weight:400;">If tabs did not open, please allow pop-ups for this site in your browser URL bar!</span>';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 8000);
+    }, 1500);
+  } catch (error) {
+    showError(`Search failed: ${error.message}`);
+    hideLoading();
+  }
+}
+
+// ─── Loading Animation ──────────────────────────────────
+
+function showLoading() {
+  loadingSection.style.display = 'block';
+  const steps = [
+    '🔍 Analyzing image...',
+    '👤 Detecting faces...',
+    '📊 Extracting metadata...',
+    '🔑 Generating fingerprints...',
+    '🌐 Preparing search links...',
+  ];
+  const stepsContainer = $('#loading-steps');
+  stepsContainer.innerHTML = '';
+  steps.forEach((step, i) => {
+    setTimeout(() => {
+      const div = document.createElement('div');
+      div.className = 'loading-step';
+      div.style.animationDelay = `${i * 0.1}s`;
+      div.textContent = step;
+      stepsContainer.appendChild(div);
+    }, i * 600);
+  });
+}
+
+function hideLoading() {
+  loadingSection.style.display = 'none';
+}
+
+// ─── Render Results ──────────────────────────────────────
+
+function renderResults(data) {
+  hideLoading();
+  resultsSection.style.display = 'block';
+
+  // Stats bar
+  renderStats(data);
+
+  // Draw face boxes on preview
+  if (data.face_detection.faces.length > 0) {
+    drawFaceBoxes(data.face_detection.faces);
+  }
+
+  // Tab contents
+  renderFacesTab(data.face_detection);
+  renderSearchTab(data.search);
+  renderMetadataTab(data.image_analysis);
+  renderFingerprintTab(data.fingerprint);
+
+  // Activate first tab
+  switchTab('faces');
+  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderStats(data) {
+  const stats = $('#results-stats');
+  const facesCount = data.face_detection.faces_found;
+  const searchCount = data.search.manual_engines.length;
+  const autoCount = (data.search.active_results || []).filter(r => r.status === 'success').length;
+  const time = data.processing_time_seconds;
+
+  stats.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${facesCount}</div>
+      <div class="stat-label">Faces Found</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${searchCount}</div>
+      <div class="stat-label">Search Engines</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${autoCount}</div>
+      <div class="stat-label">Auto Results</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${time}s</div>
+      <div class="stat-label">Process Time</div>
+    </div>
+  `;
+}
+
+// ─── Face Detection Tab ──────────────────────────────────
+
+function renderFacesTab(faceData) {
+  const container = $('#tab-faces');
+  if (faceData.faces.length === 0) {
+    container.innerHTML = `
+      <div class="no-faces">
+        <span class="icon">🔍</span>
+        <p>No faces detected in this image.</p>
+        <p style="margin-top:8px;font-size:13px;">Try a clearer photo with a visible face.</p>
+      </div>`;
+    return;
+  }
+
+  let html = '<div class="faces-grid">';
+  faceData.faces.forEach((face, i) => {
+    html += `
+      <div class="face-card">
+        <img class="face-crop" src="data:image/jpeg;base64,${face.crop_base64}" alt="Face ${i + 1}">
+        <div class="face-details">
+          <div class="face-detail-row">
+            <span class="face-detail-label">Face #</span>
+            <span class="face-detail-value">${i + 1}</span>
+          </div>
+          <div class="face-detail-row">
+            <span class="face-detail-label">Confidence</span>
+            <span class="face-detail-value">${Math.round(face.confidence * 100)}%</span>
+          </div>
+          <div class="face-detail-row">
+            <span class="face-detail-label">Position</span>
+            <span class="face-detail-value">${face.position}</span>
+          </div>
+          <div class="face-detail-row">
+            <span class="face-detail-label">Size</span>
+            <span class="face-detail-value">${face.width}×${face.height}px</span>
+          </div>
+          <div class="face-detail-row">
+            <span class="face-detail-label">Area</span>
+            <span class="face-detail-value">${face.face_area_percent}%</span>
+          </div>
+          <div class="face-detail-row">
+            <span class="face-detail-label">Eyes</span>
+            <span class="face-detail-value">${face.eyes_detected} detected</span>
+          </div>
+          <div class="face-detail-row">
+            <span class="face-detail-label">Method</span>
+            <span class="face-detail-value">${face.detection_method}</span>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-fill" style="width:${face.confidence * 100}%"></div>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ─── Draw Face Boxes on Preview ──────────────────────────
+
+function drawFaceBoxes(faces) {
+  const img = $('#preview-img');
+  const canvas = $('#face-canvas');
+  const wrapper = img.parentElement;
+
+  canvas.width = wrapper.offsetWidth;
+  canvas.height = wrapper.offsetHeight;
+
+  const ctx = canvas.getContext('2d');
+  const scaleX = wrapper.offsetWidth / img.naturalWidth;
+  const scaleY = wrapper.offsetHeight / img.naturalHeight;
+  const scale = Math.min(scaleX, scaleY);
+
+  const offsetX = (wrapper.offsetWidth - img.naturalWidth * scale) / 2;
+  const offsetY = (wrapper.offsetHeight - img.naturalHeight * scale) / 2;
+
+  faces.forEach((face, i) => {
+    const x = face.x * scale + offsetX;
+    const y = face.y * scale + offsetY;
+    const w = face.width * scale;
+    const h = face.height * scale;
+
+    // Box
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#00d4ff';
+    ctx.shadowBlur = 8;
+    ctx.strokeRect(x, y, w, h);
+    ctx.shadowBlur = 0;
+
+    // Label
+    const label = `Face ${i + 1} (${Math.round(face.confidence * 100)}%)`;
+    ctx.font = '12px Inter, sans-serif';
+    const textWidth = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.85)';
+    ctx.fillRect(x, y - 22, textWidth + 12, 20);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, x + 6, y - 7);
+  });
+}
+
+// ─── Search Tab ──────────────────────────────────────────
+
+function renderSearchTab(searchData) {
+  const container = $('#tab-search');
+  let html = '';
+
+  // 1. Social Radar Section
+  const hasIdentity = searchData.social_radar && searchData.social_radar.identity_details &&
+    (searchData.social_radar.identity_details.names.length > 0 ||
+     searchData.social_radar.identity_details.usernames.length > 0 ||
+     searchData.social_radar.identity_details.emails.length > 0);
+  const hasSocialHits = searchData.social_radar && searchData.social_radar.total_social_hits > 0;
+
+  if (hasIdentity || hasSocialHits) {
+    html += `
+      <div class="social-radar-container" style="background: rgba(30,30,40,0.6); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);">
+        <h3 style="margin-bottom:12px; font-size:18px; font-weight:700; color: #00d4ff;">🎯 Identity & Social Media Radar</h3>
+    `;
+
+    const radar = searchData.social_radar;
+    const identity = radar.identity_details;
+
+    if (identity) {
+      // ── Person Profile Card ──
+      html += `<div style="background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(108,99,255,0.08)); border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; padding: 16px; margin-bottom: 16px;">`;
+      html += `<h4 style="color:#00d4ff; margin-bottom:12px; font-size:15px;">🕵️ Person Profile (${identity.total_sources_analyzed} sources analyzed)</h4>`;
+
+      // Name
+      if (identity.names.length > 0) {
+        html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:6px;">
+          <span style="font-size:20px;">👤</span>
+          <div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px;">Likely Name</div>
+            <div style="font-size:16px; font-weight:700; color:#fff;">${identity.names[0]}</div>
+            ${identity.names.length > 1 ? `<div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">Also: ${identity.names.slice(1).join(', ')}</div>` : ''}
+          </div>
+        </div>`;
+      }
+
+      // Emails
+      if (identity.emails && identity.emails.length > 0) {
+        html += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:6px;">
+          <span style="font-size:20px;">📧</span>
+          <div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px;">Email Addresses</div>
+            <div style="font-size:14px; font-weight:600; color:#fff;">${identity.emails.map(e => `<a href="mailto:${e}" style="color:#00d4ff; text-decoration:none;">${e}</a>`).join(', ')}</div>
+          </div>
+        </div>`;
+      }
+
+      // Usernames / Handles
+      if (identity.usernames.length > 0) {
+        html += `<div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:6px;">
+          <span style="font-size:20px;">🔗</span>
+          <div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px;">Social Handles</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;">
+              ${identity.usernames.map(u => `<span style="background:rgba(0,212,255,0.15); color:#00d4ff; padding:3px 8px; border-radius:4px; font-size:12px; font-weight:500;">${u}</span>`).join('')}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // Profile Links
+      if (identity.profile_links && identity.profile_links.length > 0) {
+        html += `<div style="margin-top:10px;">
+          <div style="font-size:11px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">📍 Found on these profiles</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">`;
+        
+        const platformIcons = {
+          'Instagram': '📷', 'Facebook': '👥', 'Twitter/X': '🐦', 'TikTok': '🎵',
+          'LinkedIn': '💼', 'Reddit': '🤖', 'Pinterest': '📌', 'VK': '🔵',
+          'YouTube': '▶️', 'GitHub': '💻'
+        };
+
+        identity.profile_links.forEach(pl => {
+          const icon = platformIcons[pl.platform] || '🌐';
+          html += `<a href="${pl.url}" target="_blank" style="display:inline-flex; align-items:center; gap:5px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); padding:5px 10px; border-radius:6px; color:#fff; text-decoration:none; font-size:12px; transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,212,255,0.5)';this.style.background='rgba(0,212,255,0.1)';" onmouseout="this.style.borderColor='rgba(255,255,255,0.12)';this.style.background='rgba(255,255,255,0.06)';">
+            <span>${icon}</span>
+            <span style="font-weight:600;">${pl.platform}</span>
+            <span style="color:rgba(255,255,255,0.5);">${pl.username}</span>
+          </a>`;
+        });
+        html += `</div></div>`;
+      }
+
+      html += `</div>`;
+    }
+
+    if (radar.total_social_hits > 0) {
+      html += `<p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">We detected exact matches or similar images on these social networks and dating apps.</p>
+        <div style="display: flex; flex-direction: column; gap: 16px;">`;
+      
+      const groups = [
+        { id: "social_media", title: "📱 Social Networks", items: radar.social_media },
+        { id: "dating_app", title: "❤️ Dating Apps", items: radar.dating_app },
+        { id: "forum_blog", title: "💬 Forums & Blogs", items: radar.forum_blog }
+      ];
+
+      groups.forEach(g => {
+        if (g.items.length > 0) {
+          html += `<div class="radar-group">
+            <h4 style="font-size:14px; margin-bottom:8px;">${g.title} (${g.items.length})</h4>
+            <div style="display:flex; flex-wrap: wrap; gap: 8px;">`;
+          g.items.forEach(item => {
+            html += `
+              <a href="${item.url}" target="_blank" class="radar-link" onmouseover="this.style.background='rgba(0, 212, 255, 0.1)';this.style.borderColor='rgba(0, 212, 255, 0.5)';" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.borderColor='rgba(255,255,255,0.1)';" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; text-decoration: none; color: #fff; transition: all 0.2s;">
+                ${item.thumbnail ? `<img src="${item.thumbnail}" style="width:24px; height:24px; border-radius:4px; object-fit:cover;">` : '🔗'}
+                <span style="font-size:13px; font-weight:500;">${item.source}</span>
+              </a>
+            `;
+          });
+          html += `</div></div>`;
+        }
+      });
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+  }
+
+  // Automated results next
+  if (searchData.active_results && searchData.active_results.length > 0) {
+    searchData.active_results.forEach(result => {
+      if (result.status === 'success') {
+        html += `
+          <div class="automated-result-card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <span class="automated-badge">⚡ Auto Search</span>
+              <span style="font-weight:700;">${result.engine} — Results Ready!</span>
+            </div>
+            <p class="se-desc">${result.message}</p>
+            <a href="${result.url}" target="_blank" class="se-action" style="text-decoration:none;">View Results</a>
+          </div>`;
+      }
+    });
+  }
+
+  // Search engine cards
+  html += '<h3 style="margin-bottom:16px;font-size:16px;font-weight:700;">🌐 Search Across the Web</h3>';
+  html += '<p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">Click any search engine below to find this image across the internet. Each will open in a new tab where you can upload or paste the image.</p>';
+  html += '<div class="search-engines-grid">';
+
+  searchData.manual_engines.forEach(engine => {
+    html += `
+      <a class="search-engine-card" href="${engine.upload_url}" target="_blank" rel="noopener"
+         style="--card-accent: ${engine.color};">
+        <div class="se-header">
+          <span class="se-icon">${engine.icon}</span>
+          <span class="se-name">${engine.name}</span>
+        </div>
+        <p class="se-desc">${engine.description}</p>
+        <div class="se-action">Search Now</div>
+      </a>`;
+  });
+
+  html += '</div>';
+
+  // Search all button
+  html += `
+    <div style="text-align:center;margin-top:24px;">
+      <button onclick="openAllSearchEngines()" class="upload-btn" style="font-size:15px;padding:14px 40px;">
+        🚀 Open All Search Engines
+      </button>
+    </div>`;
+
+  // Tips
+  html += '<div class="search-tips"><h4>💡 Search Tips</h4>';
+  searchData.search_tips.forEach(tip => {
+    html += `<div class="tip-item">${tip}</div>`;
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+function openAllSearchEngines() {
+  if (!searchResults) return;
+  const engines = searchResults.search.manual_engines;
+
+  // Open automated results first
+  if (searchResults.search.active_results) {
+    searchResults.search.active_results.forEach(r => {
+      if (r.status === 'success' && r.url) window.open(r.url, '_blank');
+    });
+  }
+
+  // Open top 4 manual search engines
+  engines.slice(0, 4).forEach((engine, i) => {
+    setTimeout(() => window.open(engine.upload_url, '_blank'), i * 300);
+  });
+}
+
+// ─── Metadata Tab ────────────────────────────────────────
+
+function renderMetadataTab(analysis) {
+  const container = $('#tab-metadata');
+  let html = '<div class="metadata-grid">';
+
+  // Image info
+  html += buildMetadataCard('📐 Image Information', {
+    'Format': analysis.metadata.format,
+    'Dimensions': `${analysis.metadata.width} × ${analysis.metadata.height}`,
+    'Megapixels': analysis.metadata.megapixels + ' MP',
+    'File Size': analysis.metadata.file_size_human,
+    'Aspect Ratio': analysis.metadata.aspect_ratio,
+    'Color Mode': analysis.metadata.mode,
+    'Has Transparency': analysis.metadata.has_transparency ? 'Yes' : 'No',
+    'Animated': analysis.metadata.is_animated ? 'Yes' : 'No',
+    ...(analysis.metadata.dpi ? { 'DPI': `${analysis.metadata.dpi[0]} × ${analysis.metadata.dpi[1]}` } : {}),
+  });
+
+  // Image classification
+  if (analysis.image_info) {
+    const info = analysis.image_info;
+    const infoData = {
+      'Resolution': info.resolution_category || 'N/A',
+      'Orientation': info.orientation || 'N/A',
+      'Color Space': info.color_space || 'N/A',
+    };
+    if (info.possible_source) infoData['Possible Source'] = info.possible_source;
+    html += buildMetadataCard('🎯 Image Classification', infoData);
+  }
+
+  // EXIF data
+  if (analysis.exif && !analysis.exif.note) {
+    const exifData = {};
+    Object.entries(analysis.exif).forEach(([key, val]) => {
+      if (key === 'gps') return;
+      const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      exifData[label] = val;
+    });
+    html += buildMetadataCard('📷 EXIF / Camera Data', exifData);
+
+    // GPS
+    if (analysis.exif.gps) {
+      html += buildMetadataCard('📍 GPS Location', {
+        'Latitude': analysis.exif.gps.latitude,
+        'Longitude': analysis.exif.gps.longitude,
+        'Google Maps': `<a href="${analysis.exif.gps.maps_url}" target="_blank" style="color:var(--accent-cyan);text-decoration:none;">Open Map →</a>`,
+      });
+    }
+  } else {
+    html += buildMetadataCard('📷 EXIF / Camera Data', { 'Status': 'No EXIF data found in this image' });
+  }
+
+  // Colors
+  if (analysis.colors && analysis.colors.palette) {
+    html += `
+      <div class="metadata-card" style="grid-column: 1 / -1;">
+        <h4>🎨 Color Palette</h4>
+        <div class="meta-row">
+          <span class="meta-key">Dominant Color</span>
+          <span class="meta-value" style="display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-block;width:16px;height:16px;border-radius:4px;background:${analysis.colors.dominant_color};"></span>
+            ${analysis.colors.dominant_color}
+          </span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-key">Brightness</span>
+          <span class="meta-value">${analysis.colors.brightness} (${analysis.colors.is_dark_image ? 'Dark' : 'Light'} image)</span>
+        </div>
+        <div class="color-palette">
+          ${analysis.colors.palette.map(c => `
+            <div class="color-swatch" style="background:${c.hex};">
+              <span class="tooltip">${c.hex} (${c.percentage}%)</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function buildMetadataCard(title, data) {
+  let html = `<div class="metadata-card"><h4>${title}</h4>`;
+  Object.entries(data).forEach(([key, value]) => {
+    html += `
+      <div class="meta-row">
+        <span class="meta-key">${key}</span>
+        <span class="meta-value">${value}</span>
+      </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+// ─── Fingerprint Tab ─────────────────────────────────────
+
+function renderFingerprintTab(fingerprint) {
+  const container = $('#tab-fingerprint');
+  if (fingerprint.error) {
+    container.innerHTML = `<p style="color:var(--text-muted);">Error generating fingerprint: ${fingerprint.error}</p>`;
+    return;
+  }
+
+  let html = `
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">
+      These perceptual hashes uniquely identify this image. Similar images will have similar hash values.
+      Use these to detect duplicates and track image copies across the web.
+    </p>
+    <div class="hash-grid">`;
+
+  const hashLabels = {
+    perceptual_hash: '🔐 Perceptual Hash (pHash)',
+    difference_hash: '📊 Difference Hash (dHash)',
+    average_hash: '📐 Average Hash (aHash)',
+    wavelet_hash: '🌊 Wavelet Hash (wHash)',
+    color_hash: '🎨 Color Hash',
+    fingerprint_summary: '🔑 Fingerprint ID',
+  };
+
+  Object.entries(hashLabels).forEach(([key, label]) => {
+    if (fingerprint[key]) {
+      html += `
+        <div class="hash-item">
+          <div class="hash-label">${label}</div>
+          <div class="hash-value">${fingerprint[key]}</div>
+        </div>`;
+    }
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ─── Tab Switching ───────────────────────────────────────
+
+function switchTab(tabId) {
+  $$('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  $$('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+}
+
+// Tab click handlers
+document.addEventListener('DOMContentLoaded', () => {
+  $$('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+});
+
+// ─── Reset ───────────────────────────────────────────────
+
+function resetUpload() {
+  currentFile = null;
+  searchResults = null;
+  fileInput.value = '';
+  previewSection.style.display = 'none';
+  loadingSection.style.display = 'none';
+  resultsSection.style.display = 'none';
+  uploadSection.style.display = 'block';
+
+  const canvas = $('#face-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ─── Error Display ───────────────────────────────────────
+
+function showError(msg) {
+  const existing = document.querySelector('.error-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'error-toast';
+  toast.style.cssText = `
+    position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+    background:rgba(255,45,95,0.95);color:#fff;padding:14px 28px;
+    border-radius:12px;font-size:14px;font-weight:600;z-index:1000;
+    box-shadow:0 4px 20px rgba(255,45,95,0.3);
+    animation:fadeIn 0.3s;
+  `;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 5000);
+}

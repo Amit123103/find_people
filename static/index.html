@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ImageFinder — Reverse Image Search & Face Finder</title>
+  <meta name="description" content="Upload any image to find where it appears online. Detect faces, extract metadata, and search across Google, Yandex, Bing, TinEye, and more.">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+</head>
+<body>
+
+  <!-- ═══ Header ═══ -->
+  <header class="header">
+    <a class="logo" href="/">
+      <div class="logo-icon">🔍</div>
+      <span class="logo-text">ImageFinder</span>
+    </a>
+    <span class="header-badge">⚡ No API Keys Required</span>
+  </header>
+
+  <!-- ═══ Hero ═══ -->
+  <section class="hero">
+    <h1>Find Any Image<br><span class="gradient-text">Across The Internet</span></h1>
+    <p>Upload a photo to detect faces, extract metadata, generate fingerprints, and search across 8+ search engines worldwide.</p>
+  </section>
+
+  <!-- ═══ Upload Zone ═══ -->
+  <section class="upload-section">
+    <div class="upload-zone" id="upload-zone">
+      <span class="upload-icon">📸</span>
+      <div class="upload-title">Drop your image here</div>
+      <div class="upload-subtitle">or click to browse files</div>
+      <button class="upload-btn" type="button">Choose Image</button>
+      <div class="upload-formats">Supports JPG, PNG, WebP, BMP, GIF, TIFF • Max 10 MB</div>
+    </div>
+    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/bmp,image/gif,image/tiff">
+  </section>
+
+  <!-- ═══ Preview ═══ -->
+  <section class="preview-section">
+    <div class="preview-card">
+      <div class="preview-header">
+        <h3>📷 <span id="preview-filename">Uploaded Image</span></h3>
+        <button class="btn-reset" onclick="resetUpload()">✕ New Search</button>
+      </div>
+      <div class="preview-image-wrapper">
+        <img id="preview-img" alt="Preview">
+        <canvas id="face-canvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Loading ═══ -->
+  <section class="loading-section">
+    <div class="loader"></div>
+    <div class="loading-text">Analyzing Your Image...</div>
+    <div class="loading-sub">Running face detection, metadata extraction, and search preparation</div>
+    <div class="loading-steps" id="loading-steps"></div>
+  </section>
+
+  <!-- ═══ Results ═══ -->
+  <section class="results-section">
+    <!-- Stats -->
+    <div class="results-stats" id="results-stats"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="faces">👤 Faces</button>
+      <button class="tab-btn" data-tab="search">🌐 Search</button>
+      <button class="tab-btn" data-tab="metadata">📋 Metadata</button>
+      <button class="tab-btn" data-tab="fingerprint">🔑 Fingerprint</button>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="tab-content active" id="tab-faces"></div>
+    <div class="tab-content" id="tab-search"></div>
+    <div class="tab-content" id="tab-metadata"></div>
+    <div class="tab-content" id="tab-fingerprint"></div>
+  </section>
+
+  <!-- ═══ Footer ═══ -->
+  <footer class="footer">
+    ImageFinder v1.0 — Zero API Keys • 100% Local Analysis • Open Source
+  </footer>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

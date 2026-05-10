@@ -1,0 +1,10 @@
+__pycache__/
+.venv/
+.env
+*.py[cod]
+uploads/*
+!uploads/.gitkeep
+node_modules/
+.idea/
+.vscode/
+*.DS_Store
